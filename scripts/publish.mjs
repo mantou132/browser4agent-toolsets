@@ -1,15 +1,31 @@
-// Validates every toolset in toolsets/ with the market's own parser.
-// With --publish, also creates or updates each toolset in the market (needs MARKET_TOKEN).
+// Validates toolsets with the market's own parser; with --publish, also creates or updates them in the
+// market (needs MARKET_TOKEN). Pass file paths to process only those; with none, every toolset is processed.
 import { readdir, readFile } from 'node:fs/promises';
+import { basename } from 'node:path';
 
 const API = process.env.MARKET_API || 'https://browser4agent-market.709922234.workers.dev';
-const publish = process.argv.includes('--publish');
+const args = process.argv.slice(2);
+const publish = args.includes('--publish');
 const token = process.env.MARKET_TOKEN;
 if (publish && !token) throw new Error('MARKET_TOKEN is required to publish');
 
-const files = (await readdir('toolsets')).filter((file) => /\.[cm]?[jt]s$/.test(file)).sort();
-const owners = new Map();
+const isToolset = (file) => /\.[cm]?[jt]s$/.test(file);
+const all = (await readdir('toolsets')).filter(isToolset).sort();
+const requested = args.filter((arg) => !arg.startsWith('--')).map((arg) => basename(arg));
+const files = requested.length ? requested.filter((file) => all.includes(file)) : all;
 let failed = false;
+
+// The @module name is the toolset's identity in the market, and every toolset here is owned by the same
+// token, so a duplicate name would silently overwrite another toolset. Check all files locally.
+const owners = new Map();
+for (const file of all) {
+  const name = (await readFile(`toolsets/${file}`, 'utf8')).match(/@module\s+(.+)/)?.[1].trim();
+  if (owners.has(name)) {
+    console.error(`✗ ${file}: toolset name "${name}" is already used by ${owners.get(name)}`);
+    failed = true;
+  }
+  owners.set(name, file);
+}
 
 for (const file of files) {
   const content = await readFile(`toolsets/${file}`, 'utf8');
@@ -24,29 +40,21 @@ for (const file of files) {
     failed = true;
     continue;
   }
-  // The @module name is the toolset's identity in the market.
-  if (owners.has(toolset.name)) {
-    console.error(`✗ ${file}: toolset name "${toolset.name}" is already used by ${owners.get(toolset.name)}`);
-    failed = true;
-    continue;
-  }
-  owners.set(toolset.name, file);
   console.log(`✓ ${file}: ${toolset.name} (${toolset.tools.map((tool) => tool.name).join(', ')})`);
-  if (!publish) continue;
+  if (!publish || failed) continue;
 
-  const url = `${API}/api/toolsets/${encodeURIComponent(toolset.name)}`;
-  const exists = (await fetch(url)).ok;
-  const write = await fetch(exists ? url : `${API}/api/toolsets`, {
-    method: exists ? 'PUT' : 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-    body: JSON.stringify(toolset),
-  });
+  const headers = { 'content-type': 'application/json', authorization: `Bearer ${token}` };
+  const body = JSON.stringify(toolset);
+  let write = await fetch(`${API}/api/toolsets/${encodeURIComponent(toolset.name)}`, { method: 'PUT', headers, body });
+  const created = write.status === 404;
+  if (created) write = await fetch(`${API}/api/toolsets`, { method: 'POST', headers, body });
   if (write.ok) {
-    console.log(`  ${exists ? 'updated' : 'created'} in the market`);
+    console.log(`  ${created ? 'created' : 'updated'} in the market`);
   } else {
     console.error(`  ✗ publish failed: ${write.status} ${(await write.json()).error}`);
     failed = true;
   }
 }
 
+if (!files.length) console.log('No changed toolsets.');
 if (failed) process.exit(1);
