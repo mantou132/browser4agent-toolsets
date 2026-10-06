@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths: ['toolsets/**']
-  # Manual runs republish every toolset.
+  # Manual runs republish every toolset (deletions are only synced on push).
   workflow_dispatch:
 
 permissions:
@@ -24,15 +24,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Publish changed toolsets
+      - name: Sync changed toolsets to the market
         env:
           MARKET_TOKEN: ${{ secrets.MARKET_TOKEN }}
           BEFORE: ${{ github.event.before }}
         run: |
+          # The first push to a branch has no previous commit; fall back to republishing everything.
           if [ "$GITHUB_EVENT_NAME" = push ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            files=$(git diff --name-only --diff-filter=AM "$BEFORE" HEAD -- toolsets/)
-            if [ -z "$files" ]; then echo "No changed toolsets."; exit 0; fi
-            node scripts/publish.mjs --publish $files
+            node scripts/publish.mjs --publish --since "$BEFORE"
           else
             node scripts/publish.mjs --publish
           fi

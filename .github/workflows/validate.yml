@@ -19,7 +19,4 @@ jobs:
       - name: Validate changed toolsets
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
-        run: |
-          files=$(git diff --name-only --diff-filter=AM "$BASE" HEAD -- toolsets/)
-          if [ -z "$files" ]; then echo "No changed toolsets."; exit 0; fi
-          node scripts/publish.mjs $files
+        run: node scripts/publish.mjs --since "$BASE"

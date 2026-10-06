@@ -49,7 +49,7 @@ export function get_headline({ uppercase = false } = {}) {
 
 - `@pattern` is a [URLPattern](https://developer.mozilla.org/docs/Web/API/URL_Pattern_API); the tool is offered only on matching pages.
 - Tools run in the page's main world. Top-level helper functions you reference are bundled into each tool.
-- The `@module` name is the toolset's identity in the market. Don't rename an existing toolset.
+- The `@module` name is the toolset's identity in the market. Renaming it publishes a new toolset and removes the old one (losing its install and like counts); deleting the file removes it from the market.
 
 ### Guidelines
 
