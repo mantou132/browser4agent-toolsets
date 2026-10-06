@@ -1,0 +1,26 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+    paths: ['toolsets/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/publish.mjs --publish
+        env:
+          MARKET_TOKEN: ${{ secrets.MARKET_TOKEN }}
