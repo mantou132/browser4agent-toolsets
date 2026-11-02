@@ -14,6 +14,7 @@ Every toolset here is reviewed in a public pull request before it reaches the ma
 | [YouTube Tools](toolsets/youtube.js) | `get_transcript` | youtube.com |
 | [Google Docs Tools](toolsets/google-docs.js) | `get_doc_markdown` | docs.google.com/document |
 | [Google Sheets Tools](toolsets/google-sheets.js) | `read_sheet` | docs.google.com/spreadsheets |
+| [LinkedIn Tools](toolsets/linkedin.js) | `list_people_results`, `get_profile`, `draft_invitation` | linkedin.com |
 
 ## Use
 
