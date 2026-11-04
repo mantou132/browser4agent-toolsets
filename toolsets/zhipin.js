@@ -176,9 +176,16 @@ export async function get_job({ url } = {}) {
   const target = new URL(url || location.href, location.origin);
   const id = target.pathname.match(/^\/job_detail\/([\w~-]+)\.html/)?.[1];
   if (!id) throw new Error('Not a job URL; expected https://www.zhipin.com/job_detail/<id>.html');
-  const res = await fetch(target.pathname, { credentials: 'include' });
-  if (!res.ok) throw new Error(`Failed to load the job page: ${res.status}`);
-  const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+  let doc = document;
+  if (target.pathname !== location.pathname) {
+    const res = await fetch(target.pathname, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Failed to load the job page: ${res.status}`);
+    // After a burst of page loads BOSS直聘 answers with a JavaScript security check that only a real page load passes.
+    if (new URL(res.url).pathname.includes('/security')) {
+      throw new Error(`BOSS直聘 wants a security check; open ${jobUrl(id)} in this tab, then call get_job without url`);
+    }
+    doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+  }
   const title = doc.querySelector('.job-banner h1');
   if (!title) throw new Error('No job on this page; it may be closed, or BOSS直聘 wants a security check (open the page and pass it)');
 
@@ -340,16 +347,27 @@ export async function draft_message({ who, text } = {}) {
     item = await waitFor(() => items().find(match));
   }
   if (!item) throw new Error(`"${friend.name}" is not in the chat list; scroll the list or search for them, then retry`);
+  const header = () => document.querySelector('.chat-position-content')?.textContent.trim() || '';
+  const previous = header();
   item.click();
 
-  const input = await waitFor(() => document.querySelector('#chat-input'));
-  if (!input) throw new Error('The conversation did not open');
-  await waitFor(() => document.querySelector('.chat-position-content'), 3000);
-  input.focus();
-  document.execCommand('selectAll');
-  document.execCommand('insertText', false, text.slice(0, 300));
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-  await waitFor(() => !document.querySelector('.btn-send')?.classList.contains('disabled'), 2000);
+  // Loading a conversation clears the input, so wait until its job bar replaces the previous one's.
+  await waitFor(() => header() && header() !== previous, 3000);
+  const value = text.slice(0, 300);
+  let input;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    input = await waitFor(() => document.querySelector('#chat-input'));
+    if (!input) throw new Error('The conversation did not open');
+    input.focus();
+    document.execCommand('selectAll');
+    document.execCommand('insertText', false, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await waitFor(() => !document.querySelector('.btn-send')?.classList.contains('disabled'), 2000);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    if (document.querySelector('#chat-input')?.innerText.trim() === value.trim()) break;
+  }
+  input = document.querySelector('#chat-input');
+  if (input?.innerText.trim() !== value.trim()) throw new Error('The chat cleared the message while loading; retry');
   return {
     status: 'ready_to_send',
     boss: compactFriend(friend),
