@@ -17,6 +17,7 @@ Every toolset here is reviewed in a public pull request before it reaches the ma
 | [LinkedIn Tools](toolsets/linkedin.js) | `list_people_results`, `get_profile`, `draft_invitation` | linkedin.com |
 | [Wellfound Tools](toolsets/wellfound.js) | `list_jobs`, `get_job`, `list_applications`, `draft_application` | wellfound.com |
 | [V2EX Tools](toolsets/v2ex.js) | `list_topics`, `get_topic`, `list_notifications`, `draft_reply`, `draft_topic` | v2ex.com |
+| [Spotify Tools](toolsets/spotify.js) | `get_now_playing`, `get_lyrics`, `list_tracks`, `control_playback` | open.spotify.com |
 
 ## Use
 
