@@ -18,6 +18,7 @@ Every toolset here is reviewed in a public pull request before it reaches the ma
 | [Wellfound Tools](toolsets/wellfound.js) | `list_jobs`, `get_job`, `list_applications`, `draft_application` | wellfound.com |
 | [V2EX Tools](toolsets/v2ex.js) | `list_topics`, `get_topic`, `list_notifications`, `draft_reply`, `draft_topic` | v2ex.com |
 | [Spotify Tools](toolsets/spotify.js) | `get_now_playing`, `get_lyrics`, `list_tracks`, `control_playback` | open.spotify.com |
+| [BOSS Zhipin Tools](toolsets/zhipin.js) | `search_jobs`, `get_job`, `list_chats`, `get_chat`, `draft_message` | zhipin.com |
 
 ## Use
 
