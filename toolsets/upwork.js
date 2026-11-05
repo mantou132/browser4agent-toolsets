@@ -19,6 +19,16 @@ function textOf(el) {
   return (el?.innerText || '').replace(/\s+/g, ' ').trim();
 }
 
+// Cloudflare shows a "Just a moment..." interstitial before the real page loads.
+// Detecting it early prevents returning empty data that looks like a valid result.
+function assertNotChallenge() {
+  if (/just a moment/i.test(document.title) || /just a moment/i.test(document.body?.innerText || '')) {
+    throw new Error(
+      'The page is showing a Cloudflare "Just a moment..." challenge. Make this browser tab visible (active) so the challenge can complete, then retry. Background tabs often get stuck on it.',
+    );
+  }
+}
+
 // Upwork uses React controlled inputs; setting .value directly is ignored.
 // Use the native setter to bypass React's synthetic event override.
 function setValue(field, value) {
@@ -71,6 +81,7 @@ function textareaLabels() {
  * @pattern https://www.upwork.com/nx/proposals/job/*
  */
 export function get_job() {
+  assertNotChallenge();
   const url = location.href;
   const isProposal = url.includes('/proposals/job/');
 
@@ -190,6 +201,7 @@ export function get_job() {
  * @param {object} [options.answers] - Map of question text (case-insensitive substring) to answer text, e.g. { "chrome extension": "https://...", "SP-API": "I have..." }
  */
 export async function draft_proposal({ cover_letter, bid, payment_mode, answers = {} } = {}) {
+  assertNotChallenge();
   // Wait for the form to render.
   const textareas = await waitFor(() => {
     const found = document.querySelectorAll('textarea.air3-textarea');
