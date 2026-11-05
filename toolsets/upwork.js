@@ -74,46 +74,83 @@ export function get_job() {
   const url = location.href;
   const isProposal = url.includes('/proposals/job/');
 
-  // Job title is an h3 inside the job details section.
-  const h3s = [...document.querySelectorAll('h3')];
-  const title = h3s.find((h) => {
-    const t = h.textContent.trim();
-    return t && !t.startsWith('Average') && !t.startsWith('Top profile');
-  })?.textContent.trim() || '';
-
-  // Job description is inside an element with id starting "air3-truncation-".
-  const descEl = document.querySelector('[id^="air3-truncation-"]');
-  const description = descEl?.textContent.trim() || '';
-
-  // Skills are in a section after the job details.
-  const sections = [...document.querySelectorAll('section')];
-  const skillsSection = sections.find((s) => s.querySelector('h4')?.textContent?.includes('Skills'));
-  const skills = skillsSection
-    ? [...skillsSection.querySelectorAll('li')].map((li) => textOf(li)).filter(Boolean)
-    : [];
-
-  // Budget, experience level, and project length are in <li><strong>…</strong><small>…</small> lists.
-  const metaItems = [...document.querySelectorAll('li')].filter((li) => li.querySelector('strong') && li.querySelector('small'));
-  const meta = {};
-  for (const li of metaItems) {
-    const value = textOf(li.querySelector('strong'));
-    const label = textOf(li.querySelector('small'));
-    if (label.includes('Experience')) meta.experience_level = value;
-    else if (label.includes('Fixed') || label.includes('Hourly')) meta.budget = value;
-    else if (label.includes('length') || label.includes('Duration')) meta.project_length = value;
+  // The apply page has the job title in an <h3>; the job posting page has it in
+  // <title> as "Job Title - Category" and as the first non-nav heading.
+  let title = '';
+  if (isProposal) {
+    const h3s = [...document.querySelectorAll('h3')];
+    title = h3s.find((h) => {
+      const t = h.textContent.trim();
+      return t && !t.startsWith('Average') && !t.startsWith('Top profile');
+    })?.textContent.trim() || '';
+  } else {
+    // Job posting page: title is in document.title before " - "
+    title = document.title.split(' - ')[0].trim();
   }
 
-  // Connects required is shown in the proposal settings section.
+  // On the apply page, the description is in [id^="air3-truncation-"]; on the job
+  // posting page it's in [data-test="Description"]. The air3-truncation elements on
+  // the job posting page are client reviews, not the description.
+  let description = '';
+  if (isProposal) {
+    description = document.querySelector('[id^="air3-truncation-"]')?.textContent.trim() || '';
+  } else {
+    description = document.querySelector('[data-test="Description"]')?.textContent.trim() || '';
+  }
+
+  // Skills: on the apply page they're in a <section> with an <h4> heading; on the
+  // job posting page they're in a <section> with an <h5> heading, as air3-line-clamp divs.
+  const sections = [...document.querySelectorAll('section')];
+  const skillsSection = sections.find(
+    (s) => s.querySelector('h4, h5')?.textContent?.includes('Skill'),
+  );
+  const skills = skillsSection
+    ? [...skillsSection.querySelectorAll('li, div.is-clamped, div.air3-line-clamp, [data-test="skill"]')]
+        .map((el) => textOf(el))
+        .filter(Boolean)
+    : [];
+
+  // Budget, experience level, and project length.
+  // On the apply page they're in <li><strong>…</strong><small>…</small> lists.
+  // On the job posting page they appear as plain text; extract via innerText.
+  const meta = {};
+  if (isProposal) {
+    const metaItems = [...document.querySelectorAll('li')].filter(
+      (li) => li.querySelector('strong') && li.querySelector('small'),
+    );
+    for (const li of metaItems) {
+      const value = textOf(li.querySelector('strong'));
+      const label = textOf(li.querySelector('small'));
+      if (label.includes('Experience')) meta.experience_level = value;
+      else if (label.includes('Fixed') || label.includes('Hourly')) meta.budget = value;
+      else if (label.includes('length') || label.includes('Duration')) meta.project_length = value;
+    }
+  } else {
+    // Job posting page: budget and experience are in the page text.
+    const text = document.body.innerText;
+    // Hourly: "$12.00-$125.00" with "Hourly" label nearby.
+    const hourlyMatch = text.match(/\$(\d+(?:\.\d+)?)\s*[-–]\s*\$(\d+(?:\.\d+)?)/);
+    const fixedMatch = text.match(/\$([\d,]+(?:\.\d+)?)\s*(?:Fixed-price|Fixed)/i);
+    const isHourly = /\bHourly\b/.test(text);
+    if (hourlyMatch && isHourly) meta.budget = `$${hourlyMatch[1]}-$${hourlyMatch[2]}/hr Hourly`;
+    else if (fixedMatch) meta.budget = `$${fixedMatch[1]} Fixed-price`;
+    const expMatch = text.match(/\b(Entry|Intermediate|Expert)\b/);
+    if (expMatch) meta.experience_level = expMatch[1];
+    const lengthMatch = text.match(/(\d+\s*(?:to\s*\d+)?\s*(?:months?|weeks?|days?|hours?))/i);
+    if (lengthMatch) meta.project_length = lengthMatch[1];
+  }
+
+  // Connects required is shown in the proposal settings section (apply page only).
   const connectsText = document.body.innerText.match(/requires\s+(\d+)\s+Connects/);
   const connects_required = connectsText ? Number(connectsText[1]) : null;
 
   // Posted date.
-  const postedMatch = document.body.innerText.match(/Posted\s+([\w\s,]+)/);
-  const posted = postedMatch ? postedMatch[1].trim() : '';
+  const postedMatch = document.body.innerText.match(/Posted\s+(.{1,30})/);
+  const posted = postedMatch ? postedMatch[1].trim().split('\n')[0] : '';
 
-  // View job posting link.
+  // View job posting link (apply page has a link back to the job).
   const viewJobLink = document.querySelector('a[href*="/jobs/~"]');
-  const job_url = viewJobLink?.href || '';
+  const job_url = viewJobLink?.href || url;
 
   const result = {
     title,
