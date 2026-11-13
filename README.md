@@ -18,7 +18,7 @@ Every toolset here is reviewed in a public pull request before it reaches the ma
 | [Wellfound Tools](toolsets/wellfound.js) | `list_jobs`, `get_job`, `list_applications`, `draft_application` | wellfound.com |
 | [V2EX Tools](toolsets/v2ex.js) | `list_topics`, `get_topic`, `list_notifications`, `draft_reply`, `draft_topic` | v2ex.com |
 | [Spotify Tools](toolsets/spotify.js) | `get_now_playing`, `get_lyrics`, `list_tracks`, `control_playback` | open.spotify.com |
-| [BOSS Zhipin Tools](toolsets/zhipin.js) | `search_jobs`, `get_job`, `list_chats`, `get_chat`, `draft_message` | zhipin.com |
+| [BOSS Zhipin Tools](toolsets/zhipin.js) | `search_jobs`, `get_job`, `get_commute`, `list_chats`, `get_chat`, `draft_message` | zhipin.com |
 | [X Tools](toolsets/x.js) | `list_tweets`, `get_thread`, `get_profile`, `draft_post` | x.com |
 | [GitHub Tools](toolsets/github.js) | `get_issue`, `get_pull_request`, `list_issues`, `get_workflow_run`, `get_commit`, `read_file`, `draft_comment` | github.com |
 | [Upwork Tools](toolsets/upwork.js) | `get_job`, `draft_proposal` | upwork.com |
