@@ -11,7 +11,7 @@ Every toolset here is reviewed in a public pull request before it reaches the ma
 | Toolset | Tools | Sites |
 | --- | --- | --- |
 | [Hacker News Tools](toolsets/hackernews.js) | `list_stories`, `get_thread` | news.ycombinator.com |
-| [YouTube Tools](toolsets/youtube.js) | `get_transcript` | youtube.com |
+| [YouTube Tools](toolsets/youtube.js) | `get_transcript`, `draft_upload_details` | youtube.com, studio.youtube.com |
 | [Google Docs Tools](toolsets/google-docs.js) | `get_doc_markdown` | docs.google.com/document |
 | [Google Sheets Tools](toolsets/google-sheets.js) | `read_sheet` | docs.google.com/spreadsheets |
 | [LinkedIn Tools](toolsets/linkedin.js) | `list_people_results`, `get_profile`, `draft_invitation` | linkedin.com |
@@ -22,6 +22,7 @@ Every toolset here is reviewed in a public pull request before it reaches the ma
 | [X Tools](toolsets/x.js) | `list_tweets`, `get_thread`, `get_profile`, `draft_post` | x.com |
 | [GitHub Tools](toolsets/github.js) | `get_issue`, `get_pull_request`, `list_issues`, `get_workflow_run`, `get_commit`, `read_file`, `draft_comment` | github.com |
 | [Upwork Tools](toolsets/upwork.js) | `get_job`, `draft_proposal` | upwork.com |
+| [Bilibili Tools](toolsets/bilibili.js) | `get_upload_form`, `draft_upload` | member.bilibili.com |
 
 ## Use
 
