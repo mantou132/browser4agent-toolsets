@@ -1,6 +1,6 @@
 /**
  * @module BOSS Zhipin Tools
- * @description Search BOSS直聘 (zhipin.com) jobs with filters, read job details, list chats with bosses and read their messages, and draft chat replies for the user to send
+ * @description Search BOSS直聘 (zhipin.com) jobs with filters, read job details and the commute to them, list chats with bosses and read their messages, and draft chat replies for the user to send
  * @icon 💼
  * @author Browser for AI Agent
  */
@@ -219,6 +219,97 @@ export async function get_job({ url } = {}) {
       industry: companyFact('industry'),
     },
   };
+}
+
+const commuteModes = { transit: 'bus', drive: 'drive', ride: 'riding', walk: 'walk' };
+
+// Resolves once the element has gone a second without changing, or after 5 seconds.
+function settle(el) {
+  return new Promise((resolve) => {
+    let timer = setTimeout(done, 1000);
+    const observer = new MutationObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(done, 1000);
+    });
+    const limit = setTimeout(done, 5000);
+    function done() {
+      observer.disconnect();
+      clearTimeout(timer);
+      clearTimeout(limit);
+      resolve();
+    }
+    observer.observe(el, { childList: true, subtree: true, characterData: true });
+  });
+}
+
+function minutes(time) {
+  const [, h = 0, m = 0] = time.match(/(?:(\d+)小时)?(?:(\d+)分钟)?/) || [];
+  return Number(h) * 60 + Number(m);
+}
+
+/**
+ * Get the commute from a starting point to the job on the current job page, using the page's own route planner (the map under the job address). Returns, for each mode, the fastest routes with their time in minutes and, for transit, the lines, stops and walking distance; for driving, the distance. Also returns the start point the map matched, so check it is the right place
+ * @pattern https://www.zhipin.com/job_detail/*
+ * @param {{ from: string, modes?: string[] }} options
+ * @param {string} options.from - Starting point as you would type it into a map, such as a residential compound or landmark with its city if ambiguous
+ * @param {string[]} [options.modes=["transit","drive"]] - Any of transit, drive, ride, walk
+ */
+export async function get_commute({ from, modes = ['transit', 'drive'] } = {}) {
+  if (!from) throw new Error('from is required');
+  const unknown = modes.filter((mode) => !commuteModes[mode]);
+  if (unknown.length) throw new Error(`Unknown mode ${unknown.join(', ')}; use transit, drive, ride or walk`);
+  const map = document.querySelector('.job-location-map');
+  if (!map) throw new Error('This job page has no map; the job may be remote or closed');
+
+  // Closed map dialogs can stay in the page with their leave transition class.
+  const dialog = () => [...document.querySelectorAll('.boss-map-dialog:not(.v-leave)')].pop();
+  if (!dialog()) map.click();
+  const box = await waitFor(dialog);
+  const planner = box && (await waitFor(() => box.querySelector('.boss-map-path-planing .start-point-select')));
+  if (!planner) throw new Error('The route planner did not open');
+  planner.click();
+  const input = await waitFor(() => box.querySelector('.search-address-input input'));
+  if (!input) throw new Error('The start point input did not open');
+  input.focus();
+  input.value = from;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  // Its keyup search doesn't always fire, so run the planner's own search, retrying while the map loads.
+  let owner = input;
+  while (owner && !owner.__vue__) owner = owner.parentElement;
+  const firstPlace = () => box.querySelector('.search-address-list li .address-title')?.closest('li');
+  let place;
+  for (let attempt = 0; attempt < 4 && !place; attempt++) {
+    await owner?.__vue__.searchAddressList().catch(() => {});
+    place = await waitFor(firstPlace, 2000);
+  }
+  if (!place) throw new Error(`The map found no place for "${from}"; try a more specific name`);
+  const start = { name: text(place.querySelector('.address-title')), address: text(place.querySelector('.address-desc')) };
+
+  const list = () => box.querySelector('.path-plan-result .path-plan-list ul');
+  const result = box.querySelector('.path-plan-result');
+  const commute = {};
+  place.click();
+  // Picking the start point loads the routes for the mode already selected; let them arrive before switching.
+  await waitFor(() => list()?.children.length, 8000);
+  await settle(result);
+  for (const mode of modes) {
+    const tab = box.querySelector(`.plan-way-list .path-way-${commuteModes[mode]}`);
+    if (!tab.classList.contains('active')) {
+      const before = list()?.innerHTML;
+      tab.click();
+      await waitFor(() => tab.classList.contains('active') && list()?.children.length && list().innerHTML !== before, 8000);
+      // The list can briefly show the previous mode's routes before this mode's arrive.
+      await settle(result);
+    }
+    commute[mode] = [...(list()?.querySelectorAll('.path-plan-item') || [])].slice(0, 3).map((item) => {
+      const time = text(item.querySelector('.path-plan-time'));
+      const lines = [...item.querySelectorAll('.plan-site-list li')].map(text);
+      const detail = text(item.querySelector('.path-plan-desc'));
+      return { minutes: minutes(time), ...(lines.length && { lines }), ...(detail && { detail }) };
+    });
+  }
+  box.querySelector('.zp-close')?.click();
+  return { from: start, to: text(document.querySelector('.location-address')), commute };
 }
 
 // Pages through the chat list until it has `limit` chats, or until `found` returns true for one of them.
