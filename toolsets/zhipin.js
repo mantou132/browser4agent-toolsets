@@ -221,13 +221,14 @@ export async function get_job({ url } = {}) {
   };
 }
 
-async function friends(limit) {
+// Pages through the chat list until it has `limit` chats, or until `found` returns true for one of them.
+async function friends(limit, found) {
   const all = [];
   for (let page = 1; all.length < limit; page++) {
     if (page > 1) await sleep(500);
     const result = (await api('/wapi/zprelation/friend/getGeekFriendList.json', { page })).result || [];
     all.push(...result);
-    if (!result.length) break;
+    if (!result.length || (found && result.some(found))) break;
   }
   return all.slice(0, limit);
 }
@@ -264,8 +265,10 @@ export async function list_chats({ limit = 50, unread_only = false } = {}) {
 }
 
 async function findFriend(who) {
-  const list = await friends(300);
-  const friend = list.find((f) => String(f.uid) === String(who) || f.encryptUid === who) ||
+  const byId = (f) => String(f.uid) === String(who) || f.encryptUid === who;
+  // A uid stops paging once found; a name reads the whole list to tell shared names apart.
+  const list = await friends(Infinity, byId);
+  const friend = list.find(byId) ||
     list.find((f) => f.name === who || `${f.name} ${f.brandName}` === who) ||
     list.find((f) => f.brandName && String(who).includes(f.brandName) && String(who).includes(f.name));
   if (!friend) throw new Error(`No chat with "${who}"; pass a uid or name from list_chats`);
@@ -291,7 +294,7 @@ function messageText(message) {
 }
 
 /**
- * Read the conversation with one boss on BOSS直聘: the job it is about and the messages in order, each marked from "me", "boss" or "system". Pass the uid or name from list_chats
+ * Read the conversation with one boss on BOSS直聘: the job it is about (with its url for get_job) and the messages in order, each marked from "me", "boss" or "system". Pass the uid or name from list_chats
  * @pattern https://www.zhipin.com/*
  * @param {{ who: string, limit?: number }} options
  * @param {string} options.who - The boss's uid, or their name (with the company if the name is shared, e.g. "李女士 某某科技")
@@ -318,7 +321,17 @@ export async function get_chat({ who, limit = 50 } = {}) {
     .slice(-limit);
   return {
     boss: compactFriend(friend),
-    ...(job && { job: { title: job.title, salary: job.salary, company: job.company, city: job.city, experience: job.experience, degree: job.education } }),
+    ...(job && {
+      job: {
+        title: job.title,
+        salary: job.salary,
+        company: job.company,
+        city: job.city,
+        experience: job.experience,
+        degree: job.education,
+        ...(friend.encryptJobId && { id: friend.encryptJobId, url: jobUrl(friend.encryptJobId) }),
+      },
+    }),
     count: readable.length,
     messages: readable,
   };
